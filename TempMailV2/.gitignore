@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.env
+
+# History file (contains passwords!)
+tempmail_history.json
+
+# IDE
+.vscode/
+.idea/

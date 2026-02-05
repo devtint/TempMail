@@ -2,6 +2,29 @@
 
 A comprehensive temporary email service using mail.tm API.
 
+---
+
+## 🆕 TempMail Interactive v3.0 (Recommended)
+
+> **Looking for an easier way?** Check out the new single-file interactive version!
+
+```bash
+cd TempMailV2
+pip install -r requirements.txt
+python main.py
+```
+
+**Features:**
+- ✅ Auto-generate email on startup
+- ✅ Auto-copy email/code/link to clipboard
+- ✅ Menu-driven interface (no commands to remember)
+- ✅ Session history with re-login support
+- ✅ Real-time spinner animation
+
+👉 **[Go to TempMailV2](./TempMailV2/README.md)**
+
+---
+
 ## Features ✨
 
 - **Generate** temporary email addresses

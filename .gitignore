@@ -143,3 +143,6 @@ cython_debug/
 # Project specific
 *.sqlite
 *.db
+
+# TempMail history (contains passwords!)
+tempmail_history.json
