@@ -10,15 +10,26 @@ A single-file interactive temporary email service using the [mail.tm](https://ma
 - **📂 Session history** - Re-login to previous emails
 - **🎯 Smart extraction** - Auto-detect verification codes and links
 - **⌨️ Menu-driven interface** - Easy numbered menu (0-9)
+- **🌐 Web UI** - Simple browser interface (optional)
 
 ## 🚀 Quick Start
 
+### CLI Mode (Terminal)
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Run
+# Run CLI
 python main.py
+```
+
+### Web UI Mode (Browser)
+```bash
+# Run web server
+python web.py
+
+# Open in browser
+# http://localhost:5000
 ```
 
 ## 📋 Menu Options
@@ -61,8 +72,10 @@ Enter choice [0-9]: _
 
 | File | Description |
 |------|-------------|
-| `main.py` | Single-file application (~520 lines) |
-| `requirements.txt` | Dependencies (requests, pyperclip) |
+| `main.py` | CLI interactive application (~520 lines) |
+| `web.py` | Web UI server (Flask) |
+| `templates/index.html` | Web UI template (paper-style) |
+| `requirements.txt` | Dependencies (requests, pyperclip, flask) |
 | `.gitignore` | Excludes history file |
 | `tempmail_history.json` | Auto-created session history |
 
@@ -90,6 +103,7 @@ Emails are saved to `tempmail_history.json` for re-login later:
 
 - `requests` - HTTP client for mail.tm API
 - `pyperclip` - Cross-platform clipboard support
+- `flask` - Web UI server (optional)
 
 ## 📡 API Used
 
