@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📧 TempMail</title>
+    <style>
+        /* Minimal paper style - just basics */
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            max-width: 700px; 
+            margin: 40px auto; 
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+        hr { margin: 20px 0; border: none; border-top: 1px solid #ccc; }
+        button { padding: 8px 16px; margin: 4px; cursor: pointer; }
+        input, select { padding: 8px; margin: 4px; }
+        .email-box { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            border: 1px solid #ddd;
+            font-family: monospace;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        .message { 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin: 10px 0;
+            background: #fafafa;
+        }
+        .message strong { color: #333; }
+        .code { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #0066cc;
+            background: #e6f2ff;
+            padding: 10px 20px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .link { word-break: break-all; color: #0066cc; }
+        .status { padding: 10px; margin: 10px 0; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .loading { color: #666; font-style: italic; }
+        #messages { margin-top: 20px; }
+        .btn-group { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>📧 TempMail</h1>
+    
+    <!-- Current Email Section -->
+    <section>
+        <h2>Current Email</h2>
+        <div class="email-box" id="currentEmail">No email generated yet</div>
+        <div class="btn-group">
+            <button onclick="copyEmail()">📋 Copy Email</button>
+            <button onclick="generateEmail()">🔄 Generate New</button>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- History Section -->
+    <section>
+        <h2>📂 Load from History</h2>
+        <select id="historySelect" style="width: 100%; padding: 10px;">
+            <option value="">-- Select previous email --</option>
+        </select>
+        <button onclick="loadFromHistory()" style="margin-top: 10px;">Load Selected</button>
+    </section>
+
+    <hr>
+
+    <!-- Actions Section -->
+    <section>
+        <h2>Actions</h2>
+        <div class="btn-group">
+            <button onclick="checkMessages()">📋 Check Messages</button>
+            <button onclick="checkForCode()">🔑 Find Code</button>
+            <button onclick="checkForLink()">🔗 Find Link</button>
+            <button onclick="checkForAny()">🎯 Find Any</button>
+        </div>
+        <div>
+            <label>Auto-refresh every: </label>
+            <select id="refreshInterval" onchange="setAutoRefresh()">
+                <option value="0">Off</option>
+                <option value="5">5 seconds</option>
+                <option value="10">10 seconds</option>
+                <option value="30">30 seconds</option>
+            </select>
+        </div>
+    </section>
+
+    <hr>
+
+    <!-- Status -->
+    <div id="status"></div>
+
+    <!-- Results Section -->
+    <section>
+        <h2>📬 Messages</h2>
+        <div id="messages">
+            <p class="loading">Generate an email to start...</p>
+        </div>
+    </section>
+
+    <!-- Found Verification -->
+    <section id="verificationSection" style="display: none;">
+        <h2>✅ Verification Found</h2>
+        <div id="verificationResult"></div>
+    </section>
+
+    <script>
+        let autoRefreshTimer = null;
+
+        // Copy text to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showStatus('📋 Copied to clipboard!', 'success');
+            });
+        }
+
+        // Copy current email
+        function copyEmail() {
+            const email = document.getElementById('currentEmail').textContent;
+            if (email && email !== 'No email generated yet') {
+                copyToClipboard(email);
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const el = document.getElementById('status');
+            el.className = 'status ' + (type || '');
+            el.textContent = message;
+            if (type === 'success') {
+                setTimeout(() => { el.textContent = ''; el.className = ''; }, 3000);
+            }
+        }
+
+        // Generate new email
+        async function generateEmail() {
+            showStatus('Generating email...', 'loading');
+            try {
+                const res = await fetch('/api/generate', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('currentEmail').textContent = data.email;
+                    showStatus('✅ Email generated!', 'success');
+                    copyToClipboard(data.email);
+                    checkMessages();
+                    loadHistory();
+                } else {
+                    showStatus('❌ ' + data.error, 'error');
+                }
+            } catch (e) {
+                showStatus('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        // Check messages
+        async function checkMessages() {
+            try {
+                const res = await fetch('/api/messages');
+                const data = await res.json();
+                const container = document.getElementById('messages');
+                
+                if (data.success && data.messages.length > 0) {
+                    container.innerHTML = data.messages.map(msg => `
+                        <div class="message" onclick="viewMessage('${msg.id}')">
+                            <strong>From:</strong> ${msg.from}<br>
+                            <strong>Subject:</strong> ${msg.subject}<br>
+                            <small>${msg.received_at}</small>
+                        </div>
+                    `).join('');
+                } else if (data.success) {
+                    container.innerHTML = '<p>📭 No messages yet</p>';
+                } else {
+                    container.innerHTML = '<p>' + (data.error || 'No active email') + '</p>';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // View specific message
+        async function viewMessage(id) {
+            try {
+                const res = await fetch('/api/message/' + id);
+                const data = await res.json();
+                
+                if (data.success) {
+                    let html = `
+                        <div class="message">
+                            <strong>From:</strong> ${data.content.from}<br>
+                            <strong>Subject:</strong> ${data.content.subject}<br>
+                            <hr>
+                    `;
+                    
+                    if (data.code) {
+                        html += `<p>🔑 <strong>Code:</strong> <span class="code">${data.code}</span> 
+                                 <button onclick="copyToClipboard('${data.code}')">Copy</button></p>`;
+                    }
+                    
+                    if (data.verification_links && data.verification_links.length > 0) {
+                        html += '<p>🔗 <strong>Verification Links:</strong></p><ul>';
+                        data.verification_links.forEach(link => {
+                            html += `<li class="link"><a href="${link}" target="_blank">${link}</a> 
+                                     <button onclick="copyToClipboard('${link}')">Copy</button></li>`;
+                        });
+                        html += '</ul>';
+                    }
+                    
+                    html += `<hr><pre style="white-space: pre-wrap;">${data.content.text_content || 'No text content'}</pre>`;
+                    html += '</div>';
+                    
+                    document.getElementById('messages').innerHTML = html;
+                    
+                    // Show verification section if found
+                    if (data.code || (data.verification_links && data.verification_links.length > 0)) {
+                        showVerification(data);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Check for verification
+        async function checkFor(type) {
+            showStatus(`Looking for ${type}...`, 'loading');
+            try {
+                const res = await fetch('/api/wait/' + type, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timeout: 5 })
+                });
+                const data = await res.json();
+                
+                if (data.success && data.value) {
+                    showVerification(data);
+                    copyToClipboard(data.value);
+                    showStatus(`✅ ${data.type} found and copied!`, 'success');
+                    checkMessages();
+                } else {
+                    showStatus('No verification found yet. Keep checking...', '');
+                }
+            } catch (e) {
+                showStatus('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        function checkForCode() { checkFor('code'); }
+        function checkForLink() { checkFor('link'); }
+        function checkForAny() { checkFor('any'); }
+
+        // Show verification result
+        function showVerification(data) {
+            const section = document.getElementById('verificationSection');
+            const result = document.getElementById('verificationResult');
+            section.style.display = 'block';
+            
+            if (data.code || data.type === 'code') {
+                const code = data.code || data.value;
+                result.innerHTML = `
+                    <p>Type: <strong>Verification Code</strong></p>
+                    <p class="code">${code}</p>
+                    <button onclick="copyToClipboard('${code}')">📋 Copy Code</button>
+                `;
+            } else if (data.verification_links || data.type === 'link') {
+                const links = data.verification_links || data.all_links || [data.value];
+                result.innerHTML = `
+                    <p>Type: <strong>Verification Link</strong></p>
+                    <p class="link">${links[0]}</p>
+                    <button onclick="copyToClipboard('${links[0]}')">📋 Copy Link</button>
+                    <a href="${links[0]}" target="_blank"><button>🔗 Open Link</button></a>
+                `;
+            }
+        }
+
+        // Load history
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                const select = document.getElementById('historySelect');
+                
+                select.innerHTML = '<option value="">-- Select previous email --</option>';
+                
+                if (data.success && data.sessions.length > 0) {
+                    data.sessions.reverse().forEach((s, i) => {
+                        const date = s.created_at ? s.created_at.substring(0, 16).replace('T', ' ') : '';
+                        select.innerHTML += `<option value="${i}" data-email="${s.email}" data-password="${s.password}">
+                            ${s.email} (${date})
+                        </option>`;
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Load from history
+        async function loadFromHistory() {
+            const select = document.getElementById('historySelect');
+            const option = select.options[select.selectedIndex];
+            
+            if (!option || !option.dataset.email) {
+                showStatus('Please select an email from history', 'error');
+                return;
+            }
+            
+            showStatus('Logging in...', 'loading');
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: option.dataset.email,
+                        password: option.dataset.password
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('currentEmail').textContent = data.email;
+                    showStatus('✅ Logged in!', 'success');
+                    copyToClipboard(data.email);
+                    checkMessages();
+                } else {
+                    showStatus('❌ Login failed: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showStatus('❌ Error: ' + e.message, 'error');
+            }
+        }
+
+        // Auto-refresh
+        function setAutoRefresh() {
+            if (autoRefreshTimer) {
+                clearInterval(autoRefreshTimer);
+                autoRefreshTimer = null;
+            }
+            
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            if (interval > 0) {
+                autoRefreshTimer = setInterval(() => {
+                    checkMessages();
+                    checkFor('any');
+                }, interval * 1000);
+            }
+        }
+
+        // Check status on load
+        async function init() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                if (data.email) {
+                    document.getElementById('currentEmail').textContent = data.email;
+                    checkMessages();
+                }
+                loadHistory();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>
